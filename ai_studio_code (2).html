@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bönetider - bönetider.se motor</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-4 selection:bg-emerald-500 selection:text-white">
+
+  <!-- Huvudbehållare -->
+  <main class="w-full max-w-md mx-auto space-y-4 pb-12">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between pt-3">
+      <div>
+        <h1 class="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+          Bönetider.se
+        </h1>
+        <p id="currentDate" class="text-xs text-slate-400 mt-0.5">Laddar datum...</p>
+      </div>
+
+      <!-- GPS / Platsknapp -->
+      <button id="gpsBtn" class="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition active:scale-95 shadow-sm">
+        <svg id="gpsIcon" class="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span id="locationLabel">Lycksele (GPS)</span>
+      </button>
+    </header>
+
+    <!-- Platsindikator -->
+    <div class="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800/80 px-3 py-1.5 rounded-lg flex items-center justify-between">
+      <span id="coordsDisplay">Position: Lycksele (64.59°N, 18.67°Ö)</span>
+      <span class="text-emerald-400">PrayTimes • MWL</span>
+    </div>
+
+    <!-- Nästa bön & Nedräkning -->
+    <section class="glass rounded-2xl p-5 text-center shadow-lg relative overflow-hidden border border-emerald-500/20">
+      <div class="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      
+      <span class="inline-block px-3 py-0.5 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold rounded-full uppercase tracking-wider mb-2">
+        Nästa bön
+      </span>
+      <h2 id="nextPrayerName" class="text-3xl font-extrabold text-white">--</h2>
+      <p id="nextPrayerTime" class="text-emerald-400 text-lg font-medium mt-0.5">kl. --:--</p>
+
+      <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-center gap-1.5 text-slate-300">
+        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span class="text-xs text-slate-400">Tid kvar:</span>
+        <span id="countdown" class="font-mono text-sm font-semibold tracking-wider text-slate-100">--:--:--</span>
+      </div>
+    </section>
+
+    <!-- Dagens Bönetider Kort (Fadjr, Shuruk, Zuhr, Assr, Magreb, Isha) -->
+    <section class="space-y-2.5" id="prayerCards"></section>
+
+    <!-- Knapp för att öppna månadsschema -->
+    <button id="toggleMonthlyBtn" class="w-full py-3 px-4 glass rounded-xl text-sm font-semibold text-slate-300 hover:text-white hover:border-emerald-500/50 transition flex items-center justify-center gap-2">
+      <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+      <span>Bönetiderna för resten av månaden</span>
+    </button>
+
+    <!-- Månadsschema Tabell (Identisk med bönetider.se) -->
+    <div id="monthlyModal" class="hidden glass rounded-2xl p-4 overflow-x-auto border border-slate-800">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-slate-200">Resten av månaden (<span id="tableCityName">Lycksele</span>)</h3>
+        <button id="closeMonthlyBtn" class="text-slate-400 hover:text-white text-xs underline">Stäng</button>
+      </div>
+      <table class="w-full text-left text-xs text-slate-300">
+        <thead class="text-slate-400 font-bold border-b border-slate-800">
+          <tr>
+            <th class="py-2">Datum</th>
+            <th class="py-2">Fadjr</th>
+            <th class="py-2">Shuruk</th>
+            <th class="py-2">Zuhr</th>
+            <th class="py-2">Assr</th>
+            <th class="py-2">Magreb</th>
+            <th class="py-2">Isha</th>
+          </tr>
+        </thead>
+        <tbody id="monthlyTableBody" class="divide-y divide-slate-800/50"></tbody>
+      </table>
+    </div>
+
+    <!-- Fotnot -->
+    <footer class="text-center text-[11px] text-slate-500 pt-3 space-y-1">
+      <p>Beräknat enligt Muslim World League (MWL) + One seventh of night (Sube Al-Lail).</p>
+      <p>Exakt samma metod och formel som bönetider.se.</p>
+    </footer>
+
+  </main>
+
+  <!-- PRAYTIMES BERÄKNINGSMOTOR (Samma som bönetider.se) -->
+  <script>
+    class PrayTimesEngine {
+      constructor() {
+        this.fajrAngle = 18;
+        this.ishaAngle = 17;
+      }
+      dtr(d) { return (d * Math.PI) / 180.0; }
+      rtd(r) { return (r * 180.0) / Math.PI; }
+      sin(d) { return Math.sin(this.dtr(d)); }
+      cos(d) { return Math.cos(this.dtr(d)); }
+      tan(d) { return Math.tan(this.dtr(d)); }
+      arcsin(d) { return this.rtd(Math.asin(d)); }
+      arccos(d) { return this.rtd(Math.acos(d)); }
+      arccot(x) { return this.rtd(Math.atan(1.0 / x)); }
+      arctan2(y, x) { return this.rtd(Math.atan2(y, x)); }
+      fixAngle(a) { return a - 360.0 * Math.floor(a / 360.0); }
+      fixHour(a) { return a - 24.0 * Math.floor(a / 24.0); }
+
+      sunPosition(jd) {
+        const D = jd - 2451545.0;
+        const g = this.fixAngle(357.529 + 0.98560028 * D);
+        const q = this.fixAngle(280.459 + 0.98564736 * D);
+        const L = this.fixAngle(q + 1.915 * this.sin(g) + 0.020 * this.sin(2 * g));
+        const e = 23.439 - 0.00000036 * D;
+        const RA = this.arctan2(this.cos(e) * this.sin(L), this.cos(L)) / 15.0;
+        const d = this.arcsin(this.sin(e) * this.sin(L));
+        const EqT = q / 15.0 - this.fixHour(RA);
+        return { declination: d, equation: EqT };
+      }
+
+      julianDate(year, month, day) {
+        if (month <= 2) { year -= 1; month += 12; }
+        const A = Math.floor(year / 100);
+        const B = 2 - A + Math.floor(A / 4);
+        return Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) + day + B - 1524.5;
+      }
+
+      midDay(time, jDate) {
+        const eqt = this.sunPosition(jDate + time).equation;
+        return this.fixHour(12 - eqt);
+      }
+
+      sunAngleTime(angle, time, dir, lat, jDate) {
+        const decl = this.sunPosition(jDate + time).declination;
+        const noon = this.midDay(time, jDate);
+        const cosDiff = (-this.sin(angle) - this.sin(lat) * this.sin(decl)) / (this.cos(lat) * this.cos(decl));
+        if (cosDiff > 1 || cosDiff < -1) return NaN;
+        const t = (1 / 15.0) * this.arccos(cosDiff);
+        return noon + (dir === 'ccw' ? -t : t);
+      }
+
+      asrTime(time, lat, jDate) {
+        const decl = this.sunPosition(jDate + time).declination;
+        const angle = -this.arccot(1 + this.tan(Math.abs(lat - decl)));
+        return this.sunAngleTime(angle, time, 'cw', lat, jDate);
+      }
+
+      compute(date, lat, lng) {
+        const timezone = -date.getTimezoneOffset() / 60.0;
+        const jDate = this.julianDate(date.getFullYear(), date.getMonth() + 1, date.getDate()) - lng / (15.0 * 24.0);
+
+        let fajr = this.sunAngleTime(this.fajrAngle, 5/24, 'ccw', lat, jDate);
+        let sunrise = this.sunAngleTime(0.833, 6/24, 'ccw', lat, jDate);
+        let dhuhr = this.midDay(12/24, jDate);
+        let asr = this.asrTime(13/24, lat, jDate);
+        let sunset = this.sunAngleTime(0.833, 18/24, 'cw', lat, jDate);
+        let maghrib = sunset;
+        let isha = this.sunAngleTime(this.ishaAngle, 18/24, 'cw', lat, jDate);
+
+        // Justera efter tidszon & longitud
+        const adjust = timezone - lng / 15.0;
+        fajr += adjust;
+        sunrise += adjust;
+        dhuhr += adjust;
+        asr += adjust;
+        sunset += adjust;
+        maghrib += adjust;
+        isha += adjust;
+
+        // One Seventh Rule (Sube Al-Lail som bönetider.se använder)
+        const night = (sunrise + 24 - sunset) % 24;
+        const portion = night / 7.0;
+
+        if (isNaN(fajr) || ((sunrise - fajr + 24) % 24) > portion) {
+          fajr = sunrise - portion;
+        }
+        if (isNaN(isha) || ((isha - sunset + 24) % 24) > portion) {
+          isha = sunset + portion;
+        }
+
+        return {
+          fajr: this.fmt(fajr),
+          sunrise: this.fmt(sunrise),
+          dhuhr: this.fmt(dhuhr),
+          asr: this.fmt(asr),
+          maghrib: this.fmt(maghrib),
+          isha: this.fmt(isha)
+        };
+      }
+
+      fmt(time) {
+        if (isNaN(time)) return "--:--";
+        time = this.fixHour(time + 0.5 / 60.0); // avrundning till närmaste minut
+        const h = Math.floor(time);
+        const m = Math.floor((time - h) * 60.0);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+    }
+
+    // App-logik
+    const engine = new PrayTimesEngine();
+
+    // Standardposition: Lycksele
+    let currentLat = 64.5958;
+    let currentLng = 18.6735;
+    let currentCity = "Lycksele";
+
+    const PRAYERS_CONFIG = [
+      { key: 'fajr', name: 'Fadjr', sub: 'Gryningsbön', isPrayer: true },
+      { key: 'sunrise', name: 'Shuruk', sub: 'Soluppgång', isPrayer: false },
+      { key: 'dhuhr', name: 'Zuhr', sub: 'Middagsbön', isPrayer: true },
+      { key: 'asr', name: 'Assr', sub: 'Eftermiddagsbön', isPrayer: true },
+      { key: 'maghrib', name: 'Magreb', sub: 'Solnedgångsbön', isPrayer: true },
+      { key: 'isha', name: 'Isha', sub: 'Nattbön', isPrayer: true }
+    ];
+
+    let countdownInterval = null;
+
+    // DOM-element
+    const currentDateEl = document.getElementById('currentDate');
+    const locationLabel = document.getElementById('locationLabel');
+    const coordsDisplay = document.getElementById('coordsDisplay');
+    const prayerCardsEl = document.getElementById('prayerCards');
+    const nextPrayerNameEl = document.getElementById('nextPrayerName');
+    const nextPrayerTimeEl = document.getElementById('nextPrayerTime');
+    const countdownEl = document.getElementById('countdown');
+    const gpsBtn = document.getElementById('gpsBtn');
+    const gpsIcon = document.getElementById('gpsIcon');
+    const toggleMonthlyBtn = document.getElementById('toggleMonthlyBtn');
+    const monthlyModal = document.getElementById('monthlyModal');
+    const closeMonthlyBtn = document.getElementById('closeMonthlyBtn');
+    const monthlyTableBody = document.getElementById('monthlyTableBody');
+    const tableCityName = document.getElementById('tableCityName');
+
+    function updateDateDisplay() {
+      const now = new Date();
+      const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      const str = now.toLocaleDateString('sv-SE', options);
+      currentDateEl.textContent = str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // Beräkna och visa tider
+    function calculateAndDisplay() {
+      const now = new Date();
+      const todayTimes = engine.compute(now, currentLat, currentLng);
+
+      renderTodayCards(todayTimes);
+      renderRestOfMonth();
+      startCountdown(todayTimes);
+    }
+
+    function renderTodayCards(times) {
+      prayerCardsEl.innerHTML = '';
+      PRAYERS_CONFIG.forEach(item => {
+        const timeStr = times[item.key];
+        const card = document.createElement('div');
+        card.id = `card-${item.key}`;
+        card.className = "flex items-center justify-between p-3.5 rounded-xl glass border border-slate-800 transition duration-200";
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg ${item.isPrayer ? 'bg-slate-800 text-emerald-400' : 'bg-slate-800/50 text-amber-300'} flex items-center justify-center font-bold text-xs">
+              ${item.name.substring(0, 2)}
+            </div>
+            <div>
+              <p class="font-semibold text-slate-100 text-sm">${item.name}</p>
+              <p class="text-[11px] text-slate-400">${item.sub}</p>
+            </div>
+          </div>
+          <span class="font-mono text-base font-bold text-slate-200">${timeStr}</span>
+        `;
+        prayerCardsEl.appendChild(card);
+      });
+    }
+
+    function startCountdown(times) {
+      clearInterval(countdownInterval);
+      const now = new Date();
+
+      const prayerList = PRAYERS_CONFIG.filter(p => p.isPrayer).map(p => {
+        const [hours, minutes] = times[p.key].split(':').map(Number);
+        const pDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+        return { name: p.name, key: p.key, date: pDate, timeStr: times[p.key] };
+      });
+
+      let upcoming = prayerList.find(p => p.date > now);
+
+      if (!upcoming) {
+        // Om alla passerat idag, ta morgondagens Fajr
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowTimes = engine.compute(tomorrow, currentLat, currentLng);
+        const [fHours, fMinutes] = tomorrowTimes.fajr.split(':').map(Number);
+        const tomorrowDate = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), fHours, fMinutes, 0);
+        upcoming = { name: 'Fadjr', key: 'fajr', date: tomorrowDate, timeStr: tomorrowTimes.fajr };
+      }
+
+      nextPrayerNameEl.textContent = upcoming.name;
+      nextPrayerTimeEl.textContent = `kl. ${upcoming.timeStr}`;
+
+      // Markera aktivt kort
+      PRAYERS_CONFIG.forEach(p => {
+        const el = document.getElementById(`card-${p.key}`);
+        if (el) {
+          if (p.key === upcoming.key) {
+            el.classList.add('border-emerald-500/80', 'bg-emerald-950/20');
+          } else {
+            el.classList.remove('border-emerald-500/80', 'bg-emerald-950/20');
+          }
+        }
+      });
+
+      const tick = () => {
+        const diff = upcoming.date - new Date();
+        if (diff <= 0) {
+          calculateAndDisplay();
+          return;
+        }
+        const hrs = Math.floor(diff / (1000 * 60 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+        countdownEl.textContent = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      };
+
+      tick();
+      countdownInterval = setInterval(tick, 1000);
+    }
+
+    // Rendera "Bönetiderna för resten av månaden"
+    function renderRestOfMonth() {
+      monthlyTableBody.innerHTML = '';
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const todayDate = now.getDate();
+
+      // Sista dagen i nuvarande månad
+      const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+      for (let day = todayDate; day <= lastDay; day++) {
+        const dateObj = new Date(currentYear, currentMonth, day);
+        const t = engine.compute(dateObj, currentLat, currentLng);
+        const isToday = day === todayDate;
+
+        const tr = document.createElement('tr');
+        tr.className = isToday ? 'bg-emerald-500/10 font-bold text-emerald-300' : 'hover:bg-slate-900/50';
+
+        tr.innerHTML = `
+          <td class="py-2.5">${monthNames[currentMonth]} ${day}</td>
+          <td>${t.fajr}</td>
+          <td>${t.sunrise}</td>
+          <td>${t.dhuhr}</td>
+          <td>${t.asr}</td>
+          <td>${t.maghrib}</td>
+          <td>${t.isha}</td>
+        `;
+        monthlyTableBody.appendChild(tr);
+      }
+    }
+
+    // GPS Hantering
+    async function requestGPS() {
+      gpsIcon.classList.add('animate-pulse');
+      locationLabel.textContent = "Söker GPS...";
+
+      if (!navigator.geolocation) {
+        fallbackLycksele("GPS stöds ej");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          currentLat = pos.coords.latitude;
+          currentLng = pos.coords.longitude;
+
+          try {
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${currentLat}&longitude=${currentLng}&localityLanguage=sv`);
+            const data = await res.json();
+            currentCity = data.city || data.locality || "Min plats";
+          } catch {
+            currentCity = "Min GPS-plats";
+          }
+
+          locationLabel.textContent = currentCity;
+          coordsDisplay.textContent = `Position: ${currentCity} (${currentLat.toFixed(2)}°N, ${currentLng.toFixed(2)}°Ö)`;
+          tableCityName.textContent = currentCity;
+          gpsIcon.classList.remove('animate-pulse');
+
+          calculateAndDisplay();
+        },
+        (err) => {
+          fallbackLycksele("GPS ej tillåten");
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+
+    function fallbackLycksele(msg) {
+      currentLat = 64.5958;
+      currentLng = 18.6735;
+      currentCity = "Lycksele";
+      locationLabel.textContent = "Lycksele";
+      coordsDisplay.textContent = `Position: Lycksele (${currentLat.toFixed(2)}°N, ${currentLng.toFixed(2)}°Ö) - ${msg}`;
+      tableCityName.textContent = "Lycksele";
+      gpsIcon.classList.remove('animate-pulse');
+      calculateAndDisplay();
+    }
+
+    // Event listeners
+    gpsBtn.addEventListener('click', requestGPS);
+
+    toggleMonthlyBtn.addEventListener('click', () => {
+      monthlyModal.classList.toggle('hidden');
+      if (!monthlyModal.classList.contains('hidden')) {
+        monthlyModal.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    closeMonthlyBtn.addEventListener('click', () => {
+      monthlyModal.classList.add('hidden');
+    });
+
+    // Start
+    updateDateDisplay();
+    fallbackLycksele("Standard"); // Visar Lycksele direkt med exakta tider
+    requestGPS(); // Frågar efter GPS för att finjustera till exakt husadress
+  </script>
+</body>
+</html>
